@@ -1,6 +1,6 @@
 # Book Generator Script
 
-This Python script, `book_generate.py`, automates the generation of book content using OpenAI's GPT-3.5 Turbo model. The script interacts with the OpenAI API to produce a structured outline and detailed content for a book based on user-defined topics or categories.
+This Python script, `generate_book.py`, automates the generation of book content using OpenAI's GPT-3.5 Turbo model. The script interacts with the OpenAI API to produce a structured outline and detailed content for a book based on user-defined topics or categories.
 
 ## Requirements
 
