@@ -1,7 +1,7 @@
 import openai
 import requests
 
-OPENAI_API_KEY = 'PLACEHOLDER FOR YOUR API KEY'
+OPENAI_API_KEY = 'YOUR_API_KEY_HERE'
 openai.api_key = OPENAI_API_KEY
 
 def generate_content(prompt):
