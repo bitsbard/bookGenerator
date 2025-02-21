@@ -1,71 +1,146 @@
 import openai
 import requests
+import time
+from typing import List, Dict, Optional
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
-OPENAI_API_KEY = 'YOUR_API_KEY_HERE'
-openai.api_key = OPENAI_API_KEY
+# Configuration Constants
+CONFIG = {
+    "API_TIMEOUT": 30,
+    "MAX_RETRIES": 5,
+    "CHAPTERS": 12,
+    "TARGET_WORDS": 60000,
+    "PARAGRAPH_LENGTH": 6,  # Sentences
+    "SECTION_WORDS": 1000,
+    "STYLE_GUIDE": {
+        "voice": "authoritative yet accessible",
+        "pacing": "methodical with narrative flourishes",
+        "examples": "contemporary and historical",
+        "structure": "thesis-support-conclusion",
+        "diversity": "include global perspectives",
+        "language": "avoid jargon without explanation"
+    }
+}
 
-def generate_content(prompt):
-    try:
-        # Generate content using OpenAI API in a chat-based approach.
-        messages = [{"role": "user", "content": prompt}]
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=messages
-        )
-        return response.choices[0].message['content']
-    except requests.exceptions.ReadTimeout:
-        print("Timeout error. Retrying...")
-        return generate_content(prompt)  # Retry the same prompt
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return ""  # Return an empty string in case of other errors
+openai.api_key = 'YOUR_API_KEY_HERE'  # Consider using environment variables in production
+
+class LiteraryAgent:
+    """Orchestrates book creation with editorial oversight"""
+    
+    def __init__(self):
+        self.manuscript = []
+        self.style_str = self._create_style_directive()
+        
+    def _create_style_directive(self) -> str:
+        """Construct detailed style instructions for GPT"""
+        return f"""Craft prose with:
+        - {CONFIG['STYLE_GUIDE']['voice']} voice
+        - {CONFIG['STYLE_GUIDE']['pacing']} pacing
+        - {CONFIG['STYLE_GUIDE']['examples']} examples
+        - {CONFIG['STYLE_GUIDE']['structure']} paragraph structure
+        - {CONFIG['STYLE_GUIDE']['diversity']} references
+        - {CONFIG['STYLE_GUIDE']['language']}
+        - Vivid sensory descriptions
+        - Rhetorical questions for engagement
+        - Seamless chapter transitions
+        - Each paragraph exactly {CONFIG['PARAGRAPH_LENGTH']} sentences"""
+        
+    @retry(stop=stop_after_attempt(CONFIG["MAX_RETRIES"]),
+           wait=wait_exponential(multiplier=1, min=4, max=60),
+           retry=retry_if_exception_type(requests.exceptions.Timeout))
+    def generate_text(self, prompt: str) -> Optional[str]:
+        """Robust content generation with enhanced error handling"""
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": f"{self.style_str}\n\n{prompt}"}],
+                temperature=0.7,
+                max_tokens=3000,
+                request_timeout=CONFIG["API_TIMEOUT"]
+            )
+            return response.choices[0].message['content']
+        except Exception as e:
+            print(f"Critical failure: {str(e)}")
+            return None
+
+    def architect_outline(self, category: str) -> str:
+        """Create complex book structure"""
+        prompt = f"""Create a rigorous {category} nonfiction outline with:
+        - 1 Epigraph
+        - 1 Prologue (historical context)
+        - {CONFIG['CHAPTERS']} chapters, each containing:
+          * Chapter title with subtitle
+          * 1 Conceptual framework
+          * 3 Case studies (1 Western, 1 Eastern, 1 Modern)
+          * 2 Controversies/debates
+          * 1 Practical application section
+        - 1 Epilogue (future implications)
+        - 1 Author's Note
+        - 1 Appendix Framework
+        - 1 Annotated Bibliography"""
+        return self.generate_text(prompt)
+
+    def forge_chapter(self, prompt: str) -> str:
+        """Generate deep, interconnected content"""
+        enhanced_prompt = f"""Develop {CONFIG['SECTION_WORDS']} words on: {prompt}
+        Include:
+        - Primary source analysis
+        - Counterargument refutation
+        - Interdisciplinary connections
+        - Real-world implementation challenges
+        - Projection of future developments"""
+        return self.generate_text(enhanced_prompt) or "CONTENT UNAVAILABLE"
+
+    def compile_manuscript(self, elements: List[str]):
+        """Assemble components with professional formatting"""
+        self.manuscript = ["\n\n※ ※ ※\n\n".join(elements)]  # Section break convention
+
+class ProductionStudio:
+    """Handlers for user interaction and output"""
+    
+    @staticmethod
+    def get_category() -> str:
+        while True:
+            category = input("Enter intellectual domain (e.g., 'Quantum Anthropology'): ")
+            if len(category) > 3:
+                return category
+            print("Please provide substantive category")
+
+    @staticmethod
+    def save_tome(content: List[str]):
+        with open("magnum_opus.txt", "w", encoding="utf-8") as f:
+            f.write("\n\n".join(content))
+        print("\nManuscript archived in 'magnum_opus.txt'")
 
 def main():
-    category = input("Enter a category or topic for the book: ")
-
-    # Initial conversation history
-    conversation_history = [
-        {
-            "role": "user",
-            "content": ""
-        }
-    ]
-
-    outline_prompt = f"Generate a book outline for a {category} book that is 60,000 words in total. Make each chapter have 5 bullet points after the chapter title. There must be 12 chapters. Do not write anything in the response after the last bullet point of the last chapter is written."
-    outline = generate_content(outline_prompt)
-    conversation_history.append({"role": "user", "content": outline_prompt})
-
-    # Print the generated book outline
-    print("\nGenerated Book Outline:\n", outline)
-
-    # Split the outline into lines
-    lines = outline.split("\n")
-
-    book_content = []
-    style_instruction = "I want each paragraph to be exactly 8 sentences long. Please ensure this style throughout the content."
-
-    for idx, line in enumerate(lines):
-        if not line.strip():  # Skip empty lines or lines with only whitespace
+    print("=== AION Manuscript Forge ===")
+    print("Crafting Monographs for the Discerning Intellect\n")
+    
+    studio = ProductionStudio()
+    scribe = LiteraryAgent()
+    
+    category = studio.get_category()
+    
+    print("\nArchitecting Tome Structure...")
+    outline = scribe.architect_outline(category)
+    print("\nGenerated Outline:\n" + outline)
+    
+    print("\nCommencing Knowledge Synthesis...")
+    components = []
+    for section in outline.split("\n"):
+        if not section.strip():
             continue
-        elif "Chapter" in line:
-            book_content.append(line)
-        elif "Epilogue" in line or "Outline" in line or "Conclusion" in line or "Title" in line:
-            # Store the line in the conversation history but do not generate content for it
-            conversation_history.append({"role": "user", "content": line})
+        if "Chapter" in section:
+            print(f"\nForging {section}...")
+            content = scribe.forge_chapter(section)
+            components.append(f"{section}\n\n{content}")
+            print(f"Completed {section}")
         else:
-            print(f"\nGenerating content for line {idx+1} based on: {line}")
-            prompt = f"{style_instruction} Now, write 1000 words based on: {line}."
-            section_content = generate_content(prompt)
-            conversation_history.append({"role": "user", "content": prompt})
-            book_content.append(section_content)
-            print(f"Completed content for line {idx+1}")
-
-    # Save the entire content
-    with open("generated_book.txt", "w") as file:
-        file.write("\n\n".join(book_content))
-    print("\nBook content saved to 'generated_book.txt'")
-    print("Program completed. Exiting...")
-    exit()
+            components.append(section)
+    
+    scribe.compile_manuscript(components)
+    studio.save_tome(scribe.manuscript)
+    print("\nOpus Complete. Submit to Academic Press.")
 
 if __name__ == "__main__":
     main()
